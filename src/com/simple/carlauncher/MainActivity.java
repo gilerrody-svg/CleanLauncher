@@ -204,7 +204,14 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
         long now = SystemClock.elapsedRealtime();
         if (!force && lastWeatherFetch != 0 && now - lastWeatherFetch < WEATHER_EVERY_MS) return;
         lastWeatherFetch = now;
-        Weather.fetch(this, this::showWeather);
+        Weather.fetch(this, this::showWeather, () -> {
+            if (Weather.cached(this) == null) {
+                weatherDesc.setText("Sin conexión · no hay datos del clima");
+                weatherCity.setText("Revisa internet o la ubicación GPS");
+            } else {
+                weatherDesc.setText("Sin conexión · mostrando último dato");
+            }
+        });
     }
 
     private final Runnable periodic = new Runnable() {
