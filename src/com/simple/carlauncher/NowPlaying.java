@@ -60,8 +60,16 @@ final class NowPlaying {
     private final Runnable btMetadataPoll = new Runnable() {
         @Override public void run() {
             if (listeners.isEmpty()) { btPolling = false; return; }
-            // Read-only request to the factory Bluetooth service; never changes audio routing.
-            if (btClient.isBound()) btClient.queryId3();
+            // Read-only status + metadata queries; this never changes audio routing.
+            if (btClient.isBound()) {
+                boolean playing = btClient.isMusicPlaying();
+                if (playing != bt.playing) {
+                    bt.playing = playing;
+                    if (playing) bt.updated = SystemClock.elapsedRealtime();
+                    notifyListeners();
+                }
+                btClient.queryId3();
+            }
             btPollHandler.postDelayed(this, 2500);
         }
     };
@@ -235,7 +243,8 @@ final class NowPlaying {
 
     void playPause() {
         Source s = current();
-        if (s == Source.BT) {
+        // If AVRCP metadata is missing, use the connected phone on an explicit tap.
+        if (s == Source.BT || (s == null && btClient.isPhoneConnected())) {
             if (Ui.radioIsSource(ctx)) {
                 // Radio has the speakers (the phone may even be playing muted): bring Bluetooth in.
                 Ui.userChoseRadioAt = 0;
@@ -254,7 +263,7 @@ final class NowPlaying {
 
     void skip(boolean next) {
         Source s = current();
-        if (s == Source.BT) {
+        if (s == Source.BT || (s == null && btClient.isPhoneConnected())) {
             btClient.playControl(next ? BtClient.NEXT : BtClient.PREVIOUS);
         } else if (s == Source.APP && controller != null) {
             if (next) controller.getTransportControls().skipToNext();
