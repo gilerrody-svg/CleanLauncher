@@ -34,6 +34,8 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
     private NowPlaying nowPlaying;
 
     private TextView greeting, weatherTemp, weatherDesc, weatherCity, weatherExtra;
+    private TextView speedValue, speedUnit;
+    private boolean speedReceiverRegistered;
     private ImageView weatherIcon;
     private GradientDrawable weatherBg;
     private ImageView car, carLights;
@@ -216,6 +218,20 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
 
     // ---------- Car lights (ILL wire) ----------
 
+    private final android.content.BroadcastReceiver speedReceiver = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context c, Intent i) {
+            if (speedValue == null) return;
+            if (i.getBooleanExtra("speed_valid", false)) {
+                speedValue.setText(String.valueOf(i.getIntExtra("speed_kmh", 0)));
+                speedUnit.setText("km/h · GPS");
+            } else {
+                speedValue.setText("--");
+                speedUnit.setText("GPS sin señal");
+            }
+        }
+    };
+
     private final android.content.BroadcastReceiver illReceiver = new android.content.BroadcastReceiver() {
         @Override
         public void onReceive(android.content.Context c, Intent i) {
@@ -276,6 +292,19 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
         date.setPadding(0, dp(6), 0, 0);
         date.setGravity(Gravity.CENTER);
         card.addView(date);
+
+        LinearLayout speedBox = new LinearLayout(this);
+        speedBox.setOrientation(LinearLayout.VERTICAL);
+        speedBox.setGravity(Gravity.CENTER);
+        speedValue = Ui.text(this, "--", 30, Color.WHITE);
+        speedValue.setTypeface(Typeface.DEFAULT_BOLD);
+        speedValue.setIncludeFontPadding(false);
+        speedBox.addView(speedValue);
+        speedUnit = Ui.text(this, "km/h · GPS", 11, 0xB3FFFFFF);
+        speedBox.addView(speedUnit);
+        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(-2, -2);
+        speedLp.topMargin = dp(3);
+        card.addView(speedBox, speedLp);
 
         // Oil-change status pill; opens the oil screen.
         oilInfo = Ui.text(this, "", 13, Color.WHITE);
@@ -568,12 +597,16 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
         updateOil();
         showWeather(Weather.cached(this));
         registerReceiver(illReceiver, new android.content.IntentFilter("com.nwd.ACTION_ILL_STATE_CHANGE"));
+        registerReceiver(speedReceiver, new android.content.IntentFilter(Odometer.ACTION_SPEED));
+        speedReceiverRegistered = true;
         boolean lights = hasLightsImage && carLightsOn();
         android.util.Log.d("CarLights", "onResume lights=" + lights);
         carLights.setAlpha(lights ? 1f : 0f);
         car.setAlpha(lights ? 0f : 1f);
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+        } else {
+            startService(new Intent(this, Odometer.class));
         }
         handler.post(periodic);
         if (Profile.isNwd(this)) handler.post(radioPoll);
@@ -585,6 +618,10 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
     protected void onPause() {
         super.onPause();
         unregisterReceiver(illReceiver);
+        if (speedReceiverRegistered) {
+            unregisterReceiver(speedReceiver);
+            speedReceiverRegistered = false;
+        }
         handler.removeCallbacks(periodic);
         handler.removeCallbacks(radioPoll);
         nowPlaying.removeListener(this);
@@ -592,7 +629,10 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
 
     @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] results) {
-        if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) fetchWeather(true);
+        if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+            fetchWeather(true);
+            startService(new Intent(this, Odometer.class));
+        }
     }
 
     @Override
