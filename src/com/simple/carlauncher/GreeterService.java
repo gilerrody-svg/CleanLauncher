@@ -57,10 +57,10 @@ public class GreeterService extends Service {
         f.addAction("com.bt.ACTION_BT_MUSIC_PAUSE");
         f.addAction("com.simple.carlauncher.TEST_CAR_ON"); // adb test hook
         registerReceiver(events, f);
-        // Right after boot, bring the last source back and greet. A plain restart of this app
-        // (update, crash) must not touch the audio.
+        // Do not change the head unit's audio source automatically. Some TS7 firmware
+        // routes Bluetooth calls/music through factory services; source switching here can
+        // mute or interrupt those services. Keep audio routing under the factory UI/user.
         if (android.os.SystemClock.elapsedRealtime() < 3 * 60_000) {
-            handler.postDelayed(this::restoreAudio, 4000);
             schedule();
         }
     }
@@ -92,21 +92,8 @@ public class GreeterService extends Service {
             } else if ("com.bt.ACTION_BT_MUSIC_PAUSE".equals(a)) {
                 btPlaying = false;
             } else if ("com.bt.ACTION_BT_MUSIC_PLAY".equals(a)) {
-                // The phone *started* music (paused -> playing): make Bluetooth the source so the
-                // radio stops instead of both playing. The phone repeats PLAY while streaming, so
-                // react only to the transition, and never right after the user picked the radio.
-                waitingForPhone = false;
-                boolean started = !btPlaying;
+                // Observe playback only; never switch the factory audio source automatically.
                 btPlaying = true;
-                long sinceRadio = android.os.SystemClock.elapsedRealtime() - Ui.userChoseRadioAt;
-                if (started && Ui.radioIsSource(GreeterService.this) && sinceRadio > 30_000) {
-                    Log.d(TAG, "BT music started over the radio, switching to Bluetooth");
-                    Ui.selectBluetooth(GreeterService.this);
-                }
-            } else if (waitingForPhone) {
-                // Phone connected after ACC on: resume Bluetooth music.
-                waitingForPhone = false;
-                handler.postDelayed(() -> startBluetoothMusic(), 2500);
             }
         }
     };
@@ -127,7 +114,7 @@ public class GreeterService extends Service {
     }
 
     private void onCarOn() {
-        handler.postDelayed(this::restoreAudio, 3000);
+        // Greeting only. Leave source restoration to the TS7 factory audio manager.
         schedule();
     }
 
