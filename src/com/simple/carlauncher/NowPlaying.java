@@ -315,6 +315,18 @@ final class NowPlaying {
             Intent i = c.getPackageManager().getLaunchIntentForPackage(controller.getPackageName());
             if (i != null) c.startActivity(i);
         } else {
+            // Prefer Android's launcher intent for the factory music package.
+            // The private activity name can differ between TS7 firmware builds.
+            Intent launch = c.getPackageManager().getLaunchIntentForPackage("com.nwd.android.music.ui");
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                try {
+                    c.startActivity(launch);
+                    return;
+                } catch (RuntimeException e) {
+                    android.util.Log.w("NowPlaying", "Factory music launch intent failed", e);
+                }
+            }
             Ui.launch(c, LOCAL_PLAYER);
         }
     }
