@@ -74,6 +74,11 @@ final class Profile {
         return nwd;
     }
 
+    /** The factory audio service may exist without the full NWD package set. */
+    static boolean hasFactoryAudioService(Context c) {
+        return installed(c.getPackageManager(), "com.nwd.setting.service");
+    }
+
     private static boolean installed(PackageManager pm, String pkg) {
         try {
             pm.getPackageInfo(pkg, 0);
