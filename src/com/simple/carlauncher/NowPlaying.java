@@ -130,6 +130,9 @@ final class NowPlaying {
                 case "com.android.music.playstatechanged":
                     if (i.hasExtra("track")) local.title = nz(i.getStringExtra("track"));
                     if (i.hasExtra("artist")) local.artist = nz(i.getStringExtra("artist"));
+                    // The factory player may send a MusicBean Parcelable rather
+                    // than plain "track"/"artist" strings. Find it by type.
+                    readFactoryTrack(i);
                     local.playing = i.getBooleanExtra("playing", local.playing);
                     local.updated = now;
                     break;
@@ -156,6 +159,36 @@ final class NowPlaying {
             notifyListeners();
         }
     };
+
+    /** Read the factory player's Parcelable track object when present. */
+    private void readFactoryTrack(Intent intent) {
+        android.os.Bundle extras = intent.getExtras();
+        if (extras == null) return;
+        try {
+            extras.setClassLoader(com.acloud.newinterface.MusicBean.class.getClassLoader());
+            for (String key : extras.keySet()) {
+                Object value;
+                try {
+                    value = extras.get(key);
+                } catch (RuntimeException ignored) {
+                    continue;
+                }
+                if (value instanceof com.acloud.newinterface.MusicBean) {
+                    com.acloud.newinterface.MusicBean bean =
+                            (com.acloud.newinterface.MusicBean) value;
+                    String title = nz(bean.TITLE);
+                    if (title.isEmpty()) title = nz(bean.DISPLAY_NAME);
+                    String artist = nz(bean.ARTIST);
+                    if (artist.isEmpty()) artist = nz(bean.TEMP_ARTIST);
+                    if (!title.isEmpty()) local.title = title;
+                    if (!artist.isEmpty()) local.artist = artist;
+                    return;
+                }
+            }
+        } catch (RuntimeException e) {
+            android.util.Log.w("NowPlaying", "Could not read factory MusicBean", e);
+        }
+    }
 
     // ---------- App media sessions ----------
 
