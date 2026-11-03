@@ -483,9 +483,15 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
     }
 
     private void openEqualizer() {
-        // The TS7 may expose the factory audio service without the full NWD package set.
+        // Prefer the TS7 factory equalizer known by the original launcher.
+        Intent factoryEq = new Intent();
+        factoryEq.setComponent(new android.content.ComponentName(
+                "com.nwd.audioset", "com.nwd.audioset.home_horizontalActivity"));
+        if (safeStart(factoryEq)) return;
+
+        // Use the integrated panel only when its backing service is installed.
         if (Profile.isNwd(this) || Profile.hasFactoryAudioService(this)) {
-            startActivity(new Intent(this, EqActivity.class));
+            safeStart(new Intent(this, EqActivity.class));
             return;
         }
         Intent eq = new Intent(android.media.audiofx.AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL);
