@@ -36,6 +36,12 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
     private TextView greeting, weatherTemp, weatherDesc, weatherCity, weatherExtra;
     private TextView speedValue, speedUnit;
     private boolean speedReceiverRegistered;
+    private final Runnable speedTimeout = () -> {
+        if (speedValue != null) {
+            speedValue.setText("--");
+            speedUnit.setText("GPS sin señal");
+        }
+    };
     private ImageView weatherIcon;
     private GradientDrawable weatherBg;
     private ImageView car, carLights;
@@ -232,6 +238,8 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
             if (i.getBooleanExtra("speed_valid", false)) {
                 speedValue.setText(String.valueOf(i.getIntExtra("speed_kmh", 0)));
                 speedUnit.setText("km/h · GPS");
+                handler.removeCallbacks(speedTimeout);
+                handler.postDelayed(speedTimeout, 6000);
             } else {
                 speedValue.setText("--");
                 speedUnit.setText("GPS sin señal");
@@ -606,6 +614,9 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
         registerReceiver(illReceiver, new android.content.IntentFilter("com.nwd.ACTION_ILL_STATE_CHANGE"));
         registerReceiver(speedReceiver, new android.content.IntentFilter(Odometer.ACTION_SPEED));
         speedReceiverRegistered = true;
+        speedValue.setText("--");
+        speedUnit.setText("Esperando GPS");
+        handler.removeCallbacks(speedTimeout);
         boolean lights = hasLightsImage && carLightsOn();
         android.util.Log.d("CarLights", "onResume lights=" + lights);
         carLights.setAlpha(lights ? 1f : 0f);
@@ -629,6 +640,7 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
             unregisterReceiver(speedReceiver);
             speedReceiverRegistered = false;
         }
+        handler.removeCallbacks(speedTimeout);
         handler.removeCallbacks(periodic);
         handler.removeCallbacks(radioPoll);
         nowPlaying.removeListener(this);
