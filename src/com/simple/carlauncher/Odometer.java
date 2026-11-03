@@ -28,28 +28,46 @@ public class Odometer extends Service implements LocationListener {
     private LocationManager lm;
     private Location last;
     private float pendingMeters;
+    private boolean locationUpdatesStarted;
+    static final String ACTION_SPEED = "com.simple.carlauncher.GPS_SPEED";
 
     @Override
     public void onCreate() {
         super.onCreate();
         lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            try {
-                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000, 10, this);
-            } catch (Exception e) {
-                Log.w(TAG, "no GPS", e);
-            }
-        }
+        startLocationUpdates();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        startLocationUpdates();
         return START_STICKY;
+    }
+
+    private void startLocationUpdates() {
+        if (locationUpdatesStarted || lm == null
+                || checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
+        try {
+            lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this);
+            locationUpdatesStarted = true;
+        } catch (Exception e) {
+            Log.w(TAG, "no GPS", e);
+        }
     }
 
     @Override
     public void onLocationChanged(Location l) {
         if (!l.hasAccuracy() || l.getAccuracy() > 25) return;
+        float speedKmh = l.hasSpeed() ? l.getSpeed() * 3.6f : 0f;
+        if (!l.hasSpeed() && last != null) {
+            float seconds = Math.max(1f, (l.getTime() - last.getTime()) / 1000f);
+            speedKmh = last.distanceTo(l) / seconds * 3.6f;
+        }
+        Intent speed = new Intent(ACTION_SPEED);
+        speed.setPackage(getPackageName());
+        speed.putExtra("speed_kmh", Math.round(speedKmh));
+        speed.putExtra("speed_valid", true);
+        sendBroadcast(speed);
         if (last != null) {
             float d = last.distanceTo(l);
             float secs = Math.max(1, (l.getTime() - last.getTime()) / 1000f);
@@ -73,7 +91,8 @@ public class Odometer extends Service implements LocationListener {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        lm.removeUpdates(this);
+        if (lm != null && locationUpdatesStarted) lm.removeUpdates(this);
+        locationUpdatesStarted = false;
     }
 
     @Override
