@@ -78,6 +78,11 @@ public class Weather {
     }
 
     public static void fetch(Context ctx, Listener l) {
+        fetch(ctx, l, null);
+    }
+
+    /** Fetch weather and optionally report a network/location failure on the main thread. */
+    public static void fetch(Context ctx, Listener l, Runnable onError) {
         Context c = ctx.getApplicationContext();
         Handler main = new Handler(Looper.getMainLooper());
         new Thread(() -> {
@@ -116,8 +121,9 @@ public class Weather {
                 prefs(c).edit().putString("json", j.toString()).apply();
                 Weather w = new Weather(j);
                 main.post(() -> l.onWeather(w));
-            } catch (Exception ignored) {
-                // No internet: keep showing the cached weather.
+            } catch (Exception error) {
+                // Keep the cached weather, but let the UI report that refresh failed.
+                if (onError != null) main.post(onError);
             }
         }).start();
     }
