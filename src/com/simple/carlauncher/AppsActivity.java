@@ -97,8 +97,9 @@ public class AppsActivity extends Activity {
         root.addView(header);
 
         GridView grid = new GridView(this);
-        grid.setNumColumns(6);
-        grid.setVerticalSpacing(dp(8));
+        grid.setNumColumns(4);
+        grid.setVerticalSpacing(dp(12));
+        grid.setHorizontalSpacing(dp(12));
         grid.setPadding(0, dp(16), 0, dp(16));
         grid.setClipToPadding(false);
         grid.setSelector(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
@@ -154,11 +155,17 @@ public class AppsActivity extends Activity {
             item = new LinearLayout(this);
             item.setOrientation(LinearLayout.VERTICAL);
             item.setGravity(Gravity.CENTER_HORIZONTAL);
-            item.setPadding(dp(6), dp(14), dp(6), dp(14));
+            item.setPadding(dp(6), dp(12), dp(6), dp(12));
+            GradientDrawable tile = new GradientDrawable(
+                    GradientDrawable.Orientation.TL_BR,
+                    new int[]{0xFF3B4149, 0xFF20252B});
+            tile.setCornerRadius(dp(16));
+            tile.setStroke(dp(1), 0x35FFFFFF);
+            item.setBackground(tile);
             icon = new ImageView(this);
-            item.addView(icon, new LinearLayout.LayoutParams(dp(64), dp(64)));
+            item.addView(icon, new LinearLayout.LayoutParams(dp(56), dp(56)));
             label = new TextView(this);
-            label.setTextSize(14);
+            label.setTextSize(13);
             label.setTextColor(0xE6FFFFFF);
             label.setGravity(Gravity.CENTER);
             label.setSingleLine(true);
