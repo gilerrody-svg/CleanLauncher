@@ -13,6 +13,8 @@ import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
 import android.os.SystemClock;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.KeyEvent;
 
 import java.util.ArrayList;
@@ -52,6 +54,17 @@ final class NowPlaying {
     private final List<Listener> listeners = new ArrayList<>();
     private final Track app = new Track(), local = new Track(), bt = new Track();
     final BtClient btClient = new BtClient();
+    private final Handler btPollHandler = new Handler(Looper.getMainLooper());
+    private boolean btPolling;
+
+    private final Runnable btMetadataPoll = new Runnable() {
+        @Override public void run() {
+            if (listeners.isEmpty()) { btPolling = false; return; }
+            // Read-only request to the factory Bluetooth service; never changes audio routing.
+            if (btClient.isBound()) btClient.queryId3();
+            btPollHandler.postDelayed(this, 2500);
+        }
+    };
 
     private final MediaSessionManager sessions;
     private final ComponentName notificationListener;
@@ -84,6 +97,7 @@ final class NowPlaying {
             if (bt.playing) bt.updated = SystemClock.elapsedRealtime();
             btClient.queryId3();
             notifyListeners();
+            startBtMetadataPolling();
         });
     }
 
@@ -264,13 +278,26 @@ final class NowPlaying {
     }
 
     void addListener(Listener l) {
-        listeners.add(l);
+        if (!listeners.contains(l)) listeners.add(l);
         refreshSessions();
         if (btClient.isBound()) btClient.queryId3();
+        startBtMetadataPolling();
     }
 
     void removeListener(Listener l) {
         listeners.remove(l);
+        if (listeners.isEmpty()) {
+            btPollHandler.removeCallbacks(btMetadataPoll);
+            btPolling = false;
+        }
+    }
+
+    private void startBtMetadataPolling() {
+        if (!btPolling && !listeners.isEmpty()) {
+            btPolling = true;
+            btPollHandler.removeCallbacks(btMetadataPoll);
+            btPollHandler.post(btMetadataPoll);
+        }
     }
 
     private void notifyListeners() {
