@@ -97,7 +97,7 @@ public class AppsActivity extends Activity {
         root.addView(header);
 
         GridView grid = new GridView(this);
-        grid.setNumColumns(4);
+        grid.setNumColumns(6);
         grid.setVerticalSpacing(dp(12));
         grid.setHorizontalSpacing(dp(12));
         grid.setPadding(0, dp(16), 0, dp(16));
