@@ -483,7 +483,8 @@ public class MainActivity extends Activity implements NowPlaying.Listener {
     }
 
     private void openEqualizer() {
-        if (Profile.isNwd(this)) {
+        // The TS7 may expose the factory audio service without the full NWD package set.
+        if (Profile.isNwd(this) || Profile.hasFactoryAudioService(this)) {
             startActivity(new Intent(this, EqActivity.class));
             return;
         }
